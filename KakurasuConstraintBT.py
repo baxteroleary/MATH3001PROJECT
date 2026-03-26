@@ -217,10 +217,9 @@ def process_line(n, axis, index, grid, const):
 
     # Unique solution subset: force all cells
     if len(sols) == 1:
-        sol_set = set(sols[0])
         for pos in unknowns:
             row, col = cell(axis, index, pos)
-            if (pos + 1) in sol_set:
+            if (pos + 1) in set(sols[0]):
                 if update(row, col, 1, grid, const) is None:
                     return None
             else:
@@ -233,6 +232,7 @@ def process_line(n, axis, index, grid, const):
     for s in sols[1:]:
         common &= set(s)
 
+    # List all cells that appear in solution sets
     appear = set()
     for s in sols:
         appear |= set(s)
@@ -241,11 +241,14 @@ def process_line(n, axis, index, grid, const):
     for pos in unknowns:
         w = pos + 1
         row, col = cell(axis, index, pos)
-
+        
+        # If a cell appears in all sols it must be 1
         if w in common:
             if update(row, col, 1, grid, const) is None:
                 return None
             changed = True
+        
+        # If a cell doesnt appear in any sols it must be 0
         elif w not in appear:
             if update(row, col, 0, grid, const) is None:
                 return None
@@ -255,11 +258,10 @@ def process_line(n, axis, index, grid, const):
         return True
 
     # If rem is bigger than sum of all but the largest, largest must be 1
-    largest_pos = max(unknowns)
-    sum_without_largest = sum((p + 1) for p in unknowns if p != largest_pos)
+    sum_without_largest = sum((p + 1) for p in unknowns if p != max(unknowns))
 
     if rem > sum_without_largest:
-        row, col = cell(axis, index, largest_pos)
+        row, col = cell(axis, index, max(unknowns))
         if update(row, col, 1, grid, const) is None:
             return None
         return True
@@ -271,14 +273,20 @@ def largest(n, grid, const):
     'Sorting by largest constants, perform reduction by method of sum constraints'
 
     progress = True
-
+    
+    # Keep running solving algorithm until nothing changes
     while progress:
         progress = False
+        # Order constants desirably
         candidates = order_consts(n, const)
 
         for value, axis, index in candidates:
+            # If constant is 0
             if value == 0:
+                
+                # Set all candidate cells to 0
                 x = zero_line_sum(n, axis, index, grid, const)
+                
                 if x is None:
                     return None
                 if x:
@@ -287,7 +295,9 @@ def largest(n, grid, const):
                 else:
                     continue
 
+            # Perform reduction on line corresponding to the constant in candidates
             res = process_line(n, axis, index, grid, const)
+            
             if res is None:
                 return None
             if res is True:
@@ -301,15 +311,18 @@ def propagate(n, grid, const):
     while True:
         before_grid = copy.deepcopy(grid)
         before_const = copy.deepcopy(const)
-
+        
+        # Perform trivial solving algorithm
         trivial(n, grid, const)
+        
         if largest(n, grid, const) is None:
             return None
 
+        # If grids and constants remain unchanged exit
         if grid == before_grid and const == before_const:
             break
 
-    return True  # propagation completed
+    return True
 
 
 def score_line(axis,index,n, grid, const):
